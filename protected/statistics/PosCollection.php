@@ -9,7 +9,7 @@ class PosCollection extends Statistics {
 			$temp = $statistic;
 			$temp['type'] = 'single';
 			foreach ($events as $eventId=>$name) {
-				$temp['eventIds'] = $eventId;
+				$temp['eventIds'] = ["$eventId"];
 				$collections[$eventId] = self::build($temp);
 			}
 			return self::makeStatisticsData($statistic, array(
@@ -22,11 +22,13 @@ class PosCollection extends Statistics {
 		$command = Yii::app()->wcaDb->createCommand();
 		$command->select([
 				'personId', 'personName',
-				'COUNT(1) AS count',
+				'SUM(CASE WHEN pos=:pos AND best>0 THEN 1 ELSE 0 END) AS count',
+				'COUNT(roundTypeId) AS rounds',
+				'SUM(CASE WHEN pos=:pos AND best>0 THEN 1 ELSE 0 END) / COUNT(roundTypeId) AS frequency',
 			])
 			->from('Results rs')
 			->leftJoin('Countries country', 'country.id=rs.personCountryId')
-			->where('pos=:pos AND best>0', [':pos'=>$statistic['pos']]);
+			->where('', [':pos'=>$statistic['pos']]);
 		if (!empty($statistic['eventIds'])) {
 			$command->andWhere(['in', 'eventId', $statistic['eventIds']]);
 		}
@@ -36,7 +38,8 @@ class PosCollection extends Statistics {
 		ActiveRecord::applyRegionCondition($command, $statistic['region'] ?? 'China');
 		$cmd = clone $command;
 		$command->group('personId')
-		->order('count DESC, personName ASC')
+		->having('rounds >= 10 AND count > 0')
+		->order('frequency DESC, count DESC, personName ASC')
 		->limit(self::$limit)
 		->offset(($page - 1) * self::$limit);
 		$columns = [
@@ -46,18 +49,18 @@ class PosCollection extends Statistics {
 				'type'=>'raw',
 			],
 			[
-				'header'=>'Yii::t("statistics", "Count")',
-				'name'=>'count',
+				'header'=>'Yii::t("statistics", "Frequency")',
+				'value'=>'number_format($data["frequency"] * 100, 2) . "% ({$data[\'count\']}/{$data[\'rounds\']})"',
 			],
 		];
 		$rows = $command->queryAll();
-		$statistic['count'] = $cmd->select('count(DISTINCT personId) AS count')->queryScalar();
+		$statistic['count'] = $cmd->select('count(DISTINCT personId) AS count')->andWhere('pos=:pos')->queryScalar();
 		$statistic['rank'] = ($page - 1) * self::$limit;
-		$statistic['rankKey'] = 'count';
+		$statistic['rankKey'] = 'frequency';
 		if ($page > 1 && $rows !== array() && $recursive) {
 			$stat = self::build($statistic, $page - 1, false);
 			foreach (array_reverse($stat['rows']) as $row) {
-				if ($row['count'] === $rows[0]['count']) {
+				if ($row['frequency'] === $rows[0]['frequency']) {
 					$statistic['rank']--;
 				} else {
 					break;

@@ -68,6 +68,21 @@
     <div class="clearfix hidden-sm"></div>
     <?php endif; ?>
     <?php endforeach; ?>
+    <div class="col-lg-12">
+      <?php $this->widget('CLinkPager', [
+        'currentPage'=>$page - 1,
+        'pageSize'=>1,
+        'itemCount'=>$total,
+        'selectedPageCssClass'=>'active',
+        'hiddenPageCssClass'=>'disabled',
+        'header'=>'',
+        'htmlOptions'=>[
+          'class'=>'pagination',
+        ],
+        'cssFile'=>false,
+      ]); ?>
+    </div>
+    <div class="clearfix"></div>
   </div>
 </div>
 <?php

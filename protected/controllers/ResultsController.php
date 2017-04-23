@@ -640,7 +640,8 @@ class ResultsController extends Controller {
 				throw new CHttpException(404);
 			}
 		}
-		$data = Statistics::getData();
+		$page = $this->iGet('page', 1);
+		$data = Statistics::getData($page);
 		extract($data);
 		$this->pageTitle = array('Fun Statistics');
 		$this->title = 'Fun Statistics';
@@ -648,6 +649,8 @@ class ResultsController extends Controller {
 		$this->render('statistics', array(
 			'statistics'=>$statistics,
 			'time'=>$time,
+			'page'=>$page,
+			'total'=>$total,
 		));
 	}
 

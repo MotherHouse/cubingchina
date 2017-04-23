@@ -3,6 +3,7 @@
 class Statistics {
 
 	const CACHE_EXPIRE = 604800;
+	const PAGE_SIZE = 6;
 
 	public static $limit = 10;
 	public static $offset = 0;
@@ -238,14 +239,34 @@ class Statistics {
 		],
 	];
 
-	public static function getData($removeCache = false) {
+	public static function getData($page = 1, $force = false) {
 		$cache = Yii::app()->cache;
-		$cacheKey = 'results_statistics_data';
-		if (!$removeCache && ($data = $cache->get($cacheKey)) !== false) {
+		$cacheKey = 'results_statistics_data_' . $page;
+		if (!$force && ($data = $cache->get($cacheKey)) !== false) {
 			return $data;
 		}
 		$statistics = array();
+		$count = 0;
+		$lists = [];
+		$temp = [];
 		foreach (self::$lists as $name=>$statistic) {
+			if (!isset($statistic['width'])) {
+				$statistic['width'] = 12;
+			}
+			$count += $statistic['width'];
+			$temp[$name] = $statistic;
+			if ($count == self::PAGE_SIZE * 12) {
+				$lists[] = $temp;
+				$count = 0;
+				$temp = [];
+			}
+		}
+		if ($temp != []) {
+			$lists[] = $temp;
+		}
+		$total = count($lists);
+		$page = max(1, min($page, $total));
+		foreach ($lists[$page - 1] as $name=>$statistic) {
 			if ($statistic['class'] !== '') {
 				$statistics[$name] = $statistic['class']::build($statistic);
 			}
@@ -253,6 +274,8 @@ class Statistics {
 		$data = array(
 			'statistics'=>$statistics,
 			'time'=>time(),
+			'page'=>$page,
+			'total'=>$total,
 		);
 		$cache->set($cacheKey, $data, self::CACHE_EXPIRE);
 		return $data;
